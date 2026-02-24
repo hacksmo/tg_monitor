@@ -1,0 +1,18 @@
+# Telegram 智能情报系统依赖
+# Python 3.10+（兼容 3.14）
+
+telethon>=1.34.0
+python-dotenv>=1.0.0
+pyyaml>=6.0
+httpx>=0.27.0
+requests>=2.31.0
+pandas>=2.0.0
+# RSI 已用 pandas 自实现，无需 pandas_ta（新版需 Python 3.12+）
+
+# Gemini（二选一或都装，代码会优先 google-genai）
+google-genai>=1.0.0
+# google-generativeai>=0.8.0
+
+# Longbridge 行情（可选）
+longbridge>=0.2.0
+# 或 longport

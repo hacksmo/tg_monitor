@@ -1,0 +1,23 @@
+# 敏感配置（切勿提交）
+.secrets/
+.env
+config.env
+*.session
+*.session-journal
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+ENV/
+
+# 系统与日志
+.DS_Store
+*.log
+*.tmp
+
+# 本地数据（可选，按需取消注释）
+# *.csv

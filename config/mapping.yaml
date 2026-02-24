@@ -1,0 +1,44 @@
+# 多源与分发矩阵示例
+# 复制到 .secrets/mapping.yaml 并按需修改
+
+sources:
+  - key: group_a_topic_251928
+    group_id: -1002504775610
+    topic_id: 251928
+    name: 金银铜派大星
+    usernames: []   # 空则抓全部分组；或填 ['user1','user2']
+    bot_token_env_key: BOT_1_TOKEN
+    target_chat_ids: []   # 转发到的群组/频道 ID 列表
+    bark_on_message: true
+
+  - key: group_a_topic_3
+    group_id: -1002504775610
+    topic_id: 3
+    name: 美股哔哔群
+    usernames: ['shufen46525', 'everleek']
+    bot_token_env_key: BOT_1_TOKEN
+    target_chat_ids: []
+    bark_on_message: true
+
+# 大佬名单（用于「大佬言论深度萃取」）
+alpha_usernames:
+  - shufen46525
+  - everleek
+  - 1720146802
+
+# 复盘抓取时间范围（天）
+summary_days_back: 2
+
+# 股票监控（Longbridge）
+stocks:
+  - symbol: NVDA.US
+    high: 150
+    low: 100
+  - symbol: SPY.US
+    high: 600
+    low: 500
+
+# 15min 简报：RSI 阈值与简报目标
+brief_rsi_overbought: 70
+brief_rsi_oversold: 30
+brief_target_chat_id_env_key: BRIEF_TARGET_CHAT_ID
