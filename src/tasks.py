@@ -21,6 +21,49 @@ from .mapping_loader import (
 )
 from .telegram_fetch import fetch_messages
 
+import hashlib
+import json
+from pathlib import Path
+
+# 项目根目录
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def _load_summary_cache() -> dict[str, Any]:
+    """从 .secrets/summary_cache.json 读取上次复盘的签名，用于避免重复调用 Gemini。"""
+    cache_path = ROOT / ".secrets" / "summary_cache.json"
+    if not cache_path.is_file():
+        return {}
+    try:
+        with cache_path.open("r", encoding="utf-8") as f:
+            return json.load(f) or {}
+    except Exception as e:
+        print(f"[复盘] 读取缓存失败，忽略: {e}")
+        return {}
+
+
+def _save_summary_cache(cache: dict[str, Any]) -> None:
+    """把本次复盘的签名写回 .secrets/summary_cache.json。"""
+    cache_dir = ROOT / ".secrets"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_dir / "summary_cache.json"
+    try:
+        with cache_path.open("w", encoding="utf-8") as f:
+            json.dump(cache, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[复盘] 写入缓存失败，忽略: {e}")
+
+
+def _messages_signature(msgs: list[dict]) -> str:
+    """根据消息内容生成签名，用于判断本次与上次是否相同。"""
+    h = hashlib.sha256()
+    # 只取最近 N 条，避免消息太多时哈希过慢
+    tail = msgs[-500:] if len(msgs) > 500 else msgs
+    for m in tail:
+        line = f"{m.get('时间','')}|{m.get('发言人ID','')}|{m.get('内容','')}\n"
+        h.update(line.encode("utf-8", errors="ignore"))
+    return h.hexdigest()
+
 
 async def run_summary_job(
     user_client: TelegramClient,
@@ -42,13 +85,16 @@ async def run_summary_job(
     # 统一推送到同一个总结群，Topic 由各 source 的配置决定
     chat_id = int(os.getenv("SUMMARY_CHAT_ID", "-1003863583323"))
 
+    # 读取上次复盘缓存，避免重复对相同内容调用 Gemini
+    cache = _load_summary_cache()
+
     for s in sources:
         gid = s.get("group_id")
         if gid is None:
             continue
         group_name = s.get("name", str(gid))
         topic_id_src = s.get("topic_id")
-        print(f"[复盘] 正在处理来源：{group_name} (group_id={gid}, topic_id={topic_id_src})")
+        print(f"[复盘] 正在处理来源：{group_name}")
 
         # 拉取该来源的消息
         msgs = await fetch_messages(
@@ -59,6 +105,17 @@ async def run_summary_job(
             days_back,
         )
         msgs.sort(key=lambda x: x.get("时间", ""))
+
+        # 计算本次消息内容签名
+        src_key = s.get("key") or f"{gid}_{topic_id_src or 0}"
+        sig = _messages_signature(msgs) if msgs else ""
+        last = cache.get(src_key) or {}
+        last_sig = last.get("signature")
+
+        # 若消息签名与上次完全一致，则跳过 Gemini 调用（节假日或重启脚本时尤其有用）
+        if msgs and sig and last_sig == sig:
+            print(f"[复盘] {group_name} 内容与上次相同，跳过本轮 Gemini 复盘。")
+            continue
 
         # 1. 该来源的群聊总结
         if msgs:
@@ -85,6 +142,11 @@ async def run_summary_job(
                     summary_topic_id,
                     title=f"📊 {group_name} 群聊复盘",
                 )
+                # 记录本次签名，方便下次跳过重复内容
+                cache[src_key] = {
+                    "signature": sig,
+                    "updated_at": now.isoformat(timespec="seconds"),
+                }
         else:
             print(f"[复盘] {group_name} 无新消息，跳过总结")
 
@@ -119,6 +181,9 @@ async def run_summary_job(
                 )
         else:
             print(f"[复盘] {group_name} 无大佬言论或未配置 alpha_usernames，跳过萃取")
+
+    # 所有来源处理完后，更新缓存
+    _save_summary_cache(cache)
 
 
 def _username_from_msg(m: dict) -> str:

@@ -6,6 +6,7 @@ Telegram 智能情报系统 - 异步主入口。
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import sys
 
@@ -25,6 +26,17 @@ from src.telegram_listener import run_listener
 from src.tasks import schedule_summary_every_12h, run_summary_job
 from src.longbridge_monitor import _run_quote_subscribe
 from src.investment_brief import run_brief_once
+
+
+class _TelethonNoiseFilter(logging.Filter):
+    """过滤 Telethon 中已知的无害警告日志。"""
+
+    def filter(self, record: logging.LogRecord) -> bool:  # type: ignore[override]
+        msg = record.getMessage()
+        if msg.startswith("Server closed the connection: 0 bytes read on a total of 8 expected bytes"):
+            # Telegram 服务端主动断开连接的正常行为，不需要在控制台刷屏
+            return False
+        return True
 
 
 async def _create_bot_clients(api_id: int, api_hash: str, proxy: dict | None) -> dict:
@@ -64,6 +76,12 @@ async def _brief_loop(user_client, bot_clients, api_key, proxy, interval_minutes
 async def main():
     # 1. 加载配置
     load_env(required_keys=["API_ID", "API_HASH", "GEMINI_API_KEY"])
+    # 2. 配置 Telethon 日志：过滤已知无害的“Server closed the connection”警告
+    telethon_logger = logging.getLogger("telethon")
+    telethon_logger.addFilter(_TelethonNoiseFilter())
+    # 若你还看到过多 Telethon 日志，也可以放宽到 ERROR 级别：
+    # telethon_logger.setLevel(logging.ERROR)
+
     api_id, api_hash = get_telegram_credentials()
     api_key = get_gemini_api_key()
     proxy = get_proxy()
@@ -97,6 +115,7 @@ async def main():
 
     # 6. Longbridge 行情监控（在线程中运行，不阻塞）
     stocks = get_stocks_config(mapping)
+    print(f"SUCCESS: 成功加载了 {len(stocks)} 只股票: {[s['symbol'] for s in stocks]}")
     lb_task = None
     if stocks and os.getenv("LONGBRIDGE_APP_KEY") or os.getenv("LONGPORT_APP_KEY"):
         try:

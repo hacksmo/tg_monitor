@@ -15,7 +15,7 @@ from .mapping_loader import get_brief_config, load_mapping
 
 
 # 简报用标的（可配置扩展）
-BRIEF_SYMBOLS = ["NVDA.US", "SPY.US"]
+BRIEF_SYMBOLS = ["NVDA.US", "SPY.US", "GOOG.US", "ALAB.US"]
 
 
 def _get_quote_context():

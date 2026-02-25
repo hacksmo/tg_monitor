@@ -32,11 +32,17 @@ summary_days_back: 2
 # 股票监控（Longbridge）
 stocks:
   - symbol: NVDA.US
-    high: 150
-    low: 100
+    high: 200
+    low: 180
   - symbol: SPY.US
     high: 600
     low: 500
+  - symbol: GOOG.US
+    high: 320
+    low: 300
+  - symbol: ALAB.US
+    high: 160
+    low: 120
 
 # 15min 简报：RSI 阈值与简报目标
 brief_rsi_overbought: 70
