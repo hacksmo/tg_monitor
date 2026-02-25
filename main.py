@@ -79,8 +79,7 @@ async def main():
     # 2. 配置 Telethon 日志：过滤已知无害的“Server closed the connection”警告
     telethon_logger = logging.getLogger("telethon")
     telethon_logger.addFilter(_TelethonNoiseFilter())
-    # 若你还看到过多 Telethon 日志，也可以放宽到 ERROR 级别：
-    # telethon_logger.setLevel(logging.ERROR)
+    telethon_logger.setLevel(logging.ERROR)
 
     api_id, api_hash = get_telegram_credentials()
     api_key = get_gemini_api_key()

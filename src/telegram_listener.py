@@ -7,7 +7,7 @@ from datetime import datetime
 from telethon import TelegramClient, events
 
 from .distribution import dispatch
-from .mapping_loader import get_sources
+from .mapping_loader import get_sources, get_alpha_usernames, load_mapping
 
 
 def _in_topic(event, topic_id: int | None) -> bool:
@@ -47,6 +47,8 @@ async def run_listener(
     在 user_client 上注册多源监听，命中则调用 dispatch。
     sources 来自 get_sources(load_mapping())。
     """
+    # 加载大佬名单，用于 bark 过滤
+    alpha_usernames = set(get_alpha_usernames(load_mapping()))
     # 按 group_id 分组，避免重复注册同一群
     by_chat: dict[int, list[dict]] = {}
     for s in sources:
@@ -79,7 +81,9 @@ async def run_listener(
             time_str = datetime.now().strftime("%H:%M:%S")
             print(f"[{time_str}] 命中来源 {source.get('key', group_id)} @{username}: {text[:30]}...")
             title = f"大佬【{nickname}】发言"
-            await dispatch(bot_clients, source, title, text, use_bark=True)
+            # 只有当发送者在大佬列表中时才发 bark
+            use_bark = username in alpha_usernames or str(sender.id) in alpha_usernames
+            await dispatch(bot_clients, source, title, text, use_bark=use_bark)
             break  # 一个消息只匹配一个 source
 
     print(f"[监听] 已注册群组: {chat_ids}")

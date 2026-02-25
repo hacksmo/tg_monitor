@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from telethon import TelegramClient
@@ -87,6 +87,30 @@ async def run_summary_job(
 
     # 读取上次复盘缓存，避免重复对相同内容调用 Gemini
     cache = _load_summary_cache()
+
+    # 检查是否在 2 小时冷却期内（方便调试，避免频繁调用 Gemini）
+    cooldown_hours = 2
+    skip_all = False
+    src_keys = []
+    for s in sources:
+        gid = s.get("group_id")
+        if gid is None:
+            continue
+        topic_id_src = s.get("topic_id")
+        src_key = s.get("key") or f"{gid}_{topic_id_src or 0}"
+        src_keys.append(src_key)
+        last = cache.get(src_key) or {}
+        last_time_str = last.get("updated_at")
+        if last_time_str:
+            try:
+                last_time = datetime.fromisoformat(last_time_str)
+                if datetime.now() - last_time < timedelta(hours=cooldown_hours):
+                    skip_all = True
+            except Exception:
+                pass
+    if skip_all:
+        print(f"[复盘] 距离上次复盘不足 {cooldown_hours} 小时，跳过本轮（调试模式）")
+        return
 
     for s in sources:
         gid = s.get("group_id")
