@@ -89,7 +89,7 @@ async def run_summary_job(
     cache = _load_summary_cache()
 
     # 检查是否在 2 小时冷却期内（方便调试，避免频繁调用 Gemini）
-    cooldown_hours = 2
+    cooldown_hours = 12
     skip_all = False
     src_keys = []
     for s in sources:
