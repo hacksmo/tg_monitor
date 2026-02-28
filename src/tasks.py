@@ -89,7 +89,7 @@ async def run_summary_job(
     cache = _load_summary_cache()
 
     # 检查是否在 2 小时冷却期内（方便调试，避免频繁调用 Gemini）
-    cooldown_hours = 12
+    cooldown_hours = 2
     skip_all = False
     src_keys = []
     for s in sources:
@@ -256,7 +256,12 @@ async def _send_to_topic(
         print(f"[复盘] 发送到 Topic 失败: {e}")
 
 
-def schedule_summary_every_12h(
+from datetime import datetime, timedelta, time
+import pytz
+
+# ... (rest of the file is unchanged until the scheduling function) ...
+
+def schedule_summary_at_fixed_times(
     user_client: TelegramClient,
     api_key: str,
     proxy: dict | None,
@@ -264,12 +269,36 @@ def schedule_summary_every_12h(
     vault_root: str | None = None,
 ) -> asyncio.Task:
     """
-    启动一个后台任务，每 12 小时执行一次 run_summary_job。
+    启动一个后台任务，在北京时间每天 9:00 和 18:00 执行复盘。
     返回 asyncio.Task，便于 main 里 cancel。
     """
     async def loop():
+        tz = pytz.timezone("Asia/Shanghai")
+        schedule_times = [time(9, 0), time(18, 0)]
+
         while True:
+            now_beijing = datetime.now(tz)
+            today = now_beijing.date()
+            
+            # 查找下一个运行时间点
+            next_run_dt = None
+            for t in schedule_times:
+                potential_next = tz.localize(datetime.combine(today, t))
+                if potential_next > now_beijing:
+                    next_run_dt = potential_next
+                    break
+            
+            # 如果今天的所有时间点都已过，则目标是明天的第一个时间点
+            if next_run_dt is None:
+                tomorrow = today + timedelta(days=1)
+                next_run_dt = tz.localize(datetime.combine(tomorrow, schedule_times[0]))
+
+            wait_seconds = (next_run_dt - now_beijing).total_seconds()
+            
+            print(f"[复盘] 下次复盘时间: {next_run_dt.strftime('%Y-%m-%d %H:%M:%S %Z%z')}，等待 {wait_seconds / 3600:.2f} 小时")
+            await asyncio.sleep(wait_seconds)
+            
+            print(f"[复盘] 到达预定时间 {next_run_dt.strftime('%H:%M')}，开始执行复盘任务...")
             await run_summary_job(user_client, api_key, proxy, mapping, vault_root)
-            await asyncio.sleep(12 * 3600)
 
     return asyncio.create_task(loop())
