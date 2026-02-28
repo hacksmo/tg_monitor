@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-Telegram 智能情报系统 - 异步主入口。
-多源监听、多 Bot 分发、12h Gemini 复盘、Longbridge 监控、15min 简报，各模块不互相阻塞。
-"""
-from __future__ import annotations
 
 import asyncio
 import logging
@@ -20,10 +14,11 @@ from src.config_loader import (
     get_gemini_api_key,
     get_obsidian_vault,
     get_bot_token,
+    get_phone_number,
 )
 from src.mapping_loader import load_mapping, get_sources, get_stocks_config
 from src.telegram_listener import run_listener
-from src.tasks import schedule_summary_every_12h, run_summary_job
+from src.tasks import schedule_summary_at_fixed_times, run_summary_job
 from src.longbridge_monitor import _run_quote_subscribe
 from src.investment_brief import run_brief_once
 
@@ -75,7 +70,7 @@ async def _brief_loop(user_client, bot_clients, api_key, proxy, interval_minutes
 
 async def main():
     # 1. 加载配置
-    load_env(required_keys=["API_ID", "API_HASH", "GEMINI_API_KEY"])
+    load_env(required_keys=["API_ID", "API_HASH", "GEMINI_API_KEY", "PHONE_NUMBER"])
     # 2. 配置 Telethon 日志：过滤已知无害的“Server closed the connection”警告
     telethon_logger = logging.getLogger("telethon")
     telethon_logger.addFilter(_TelethonNoiseFilter())
@@ -87,13 +82,14 @@ async def main():
     vault = get_obsidian_vault()
     mapping = load_mapping()
     sources = get_sources(mapping)
+    phone_number = get_phone_number()
 
     # 2. 用户端（监听）
     session_path = ".secrets/market_monitor" if os.path.isdir(".secrets") else "market_monitor"
     user_client = __import__("telethon").TelegramClient(
         session_path, api_id, api_hash, proxy=proxy
     )
-    await user_client.start()
+    await user_client.start(phone=phone_number)
     if not await user_client.is_user_authorized():
         print("登录失败，请检查 session 或重新登录。")
         return
@@ -110,7 +106,7 @@ async def main():
     listener_task = asyncio.create_task(run_listener_forever())
 
     # 5. 12h 复盘任务
-    summary_task = schedule_summary_every_12h(user_client, api_key, proxy, mapping, vault)
+    summary_task = schedule_summary_at_fixed_times(user_client, api_key, proxy, mapping, vault)
 
     # 6. Longbridge 行情监控（在线程中运行，不阻塞）
     stocks = get_stocks_config(mapping)

@@ -1,11 +1,7 @@
-"""
-配置加载：优先从 .secrets/config.env 加载环境变量，并校验必要项。
-使用 python-dotenv 的 find_dotenv 确保脚本能自动定位隐藏路径。
-"""
-from __future__ import annotations
 
 import os
 from pathlib import Path
+from dotenv import find_dotenv, load_dotenv
 
 # 项目根目录（本文件在 src/ 下）
 ROOT = Path(__file__).resolve().parent.parent
@@ -27,8 +23,6 @@ def load_env(required_keys: list[str] | None = None) -> None:
     加载环境变量。required_keys 为必须存在的 key 列表，缺一则会抛错。
     若未传 required_keys，仅加载不校验。
     """
-    from dotenv import find_dotenv, load_dotenv
-
     path = _find_env_path()
     if not Path(path).is_file():
         path = find_dotenv() or str(ROOT / ".env")
@@ -43,19 +37,7 @@ def load_env(required_keys: list[str] | None = None) -> None:
 
 def get_proxy() -> dict | None:
     """返回 Telethon 使用的代理字典，未配置则返回 None。"""
-    addr = os.getenv("PROXY_ADDR", "127.0.0.1")
-    port = os.getenv("PROXY_PORT", "10808")
-    if not addr or not port:
-        return None
-    try:
-        return {
-            "proxy_type": "http",
-            "addr": addr,
-            "port": int(port),
-            "rdns": True,
-        }
-    except ValueError:
-        return None
+    return None
 
 
 def get_telegram_credentials() -> tuple[int, str]:
@@ -65,6 +47,13 @@ def get_telegram_credentials() -> tuple[int, str]:
     if not api_id or not api_hash:
         raise ValueError("请设置 API_ID 和 API_HASH")
     return int(api_id), api_hash.strip()
+
+
+def get_phone_number() -> str:
+    phone_number = os.getenv("PHONE_NUMBER")
+    if not phone_number:
+        raise ValueError("缺少 PHONE_NUMBER")
+    return phone_number
 
 
 def get_gemini_api_key() -> str:
