@@ -21,3 +21,6 @@ ENV/
 
 # 本地数据（可选，按需取消注释）
 # *.csv
+
+# Obsidian 数据（生成的数据，不提交）
+obsidian_vault/

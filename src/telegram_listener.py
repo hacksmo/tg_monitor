@@ -8,6 +8,8 @@ from telethon import TelegramClient, events
 
 from .distribution import dispatch
 from .mapping_loader import get_sources, get_alpha_usernames, load_mapping
+from .tasks import run_summary_job
+
 
 
 def _in_topic(event, topic_id: int | None) -> bool:
@@ -46,6 +48,10 @@ async def run_listener(
     user_client: TelegramClient,
     bot_clients: dict[str, TelegramClient],
     sources: list[dict],
+    api_key: str,
+    proxy: dict | None,
+    mapping: dict,
+    vault: str | None,
 ) -> None:
     """
     在 user_client 上注册多源监听，命中则调用 dispatch。
@@ -117,5 +123,24 @@ async def run_listener(
             use_bark = is_alpha
             await dispatch(bot_clients, source, title, text, use_bark=use_bark)
             break
+
+    @user_client.on(events.NewMessage(pattern="/fupan", from_users="me"))
+    async def fupan_handler(event):
+        """手动触发复盘任务。"""
+        print("[手动复盘] 收到 /fupan 命令，开始执行...")
+        await event.reply("手动复盘任务已触发...")
+        try:
+            await run_summary_job(
+                user_client,
+                api_key,
+                proxy,
+                mapping,
+                vault,
+                force_run=True,
+            )
+            await event.edit("手动复盘任务已完成。")
+        except Exception as e:
+            await event.edit(f"手动复盘失败: {e}")
+            print(f"[手动复盘] 任务执行失败: {e}")
 
     print(f"[监听] 已注册群组: {chat_ids}")

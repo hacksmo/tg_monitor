@@ -100,7 +100,7 @@ async def main():
 
     # 4. 多源监听 + 分发（注册 handler 后由 run_until_disconnected 保持连接）
     async def run_listener_forever():
-        await run_listener(user_client, bot_clients, sources)
+        await run_listener(user_client, bot_clients, sources, api_key, proxy, mapping, vault)
         await user_client.run_until_disconnected()
 
     listener_task = asyncio.create_task(run_listener_forever())
